@@ -1,0 +1,57 @@
+version: '3'
+services:
+#mssql docker
+  fitcc-sql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Pass123!!
+      - MSSQL_PID=Developer
+    ports:
+      - 1435:1433
+    expose:
+        - 1433
+    networks:
+      - fitccnetwork
+
+  identity-server-fitcc:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./FITCCRS2.Server/Dockerfile
+    environment:
+      - ConnectionStrings:DefaultConnection=Server=fitcc-sql,1433;Database=RS2Seminarski;User=sa;Password=Pass123!!;ConnectRetryCount=0
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - 5000:5000
+    networks:
+      - fitccnetwork
+    links:
+      - fitcc-sql
+    depends_on:
+      - fitcc-sql
+
+  fitcc-api:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./FITCCRS2/Dockerfile
+    environment:
+      - ConnectionStrings:DefaultConnection=Server=fitcc-sql,1433;Database=RS2Seminarski;User=sa;Password=Pass123!!;ConnectRetryCount=0
+      - ConnectionStrings:IdentityAuthority=http://identity-server-fitcc:5000
+      - Issuer=http://identity-server-fitcc:5000
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - 5038:5038
+    networks:
+      - fitccnetwork
+    links:
+      - fitcc-sql
+    depends_on:
+      - fitcc-sql
+      - identity-server-fitcc
+      
+networks:
+  fitccnetwork:
+    driver: bridge 
